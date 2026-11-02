@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.vite/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.local
+
+src-tauri/target/
+src-tauri/gen/
+
+# Capture scratch
+tmp-frames/

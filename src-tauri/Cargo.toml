@@ -1,0 +1,28 @@
+[package]
+name = "deskstats"
+version = "1.0.0"
+description = "DeskStats — a beautiful cross-platform system monitor"
+authors = ["DeskStats contributors"]
+edition = "2021"
+rust-version = "1.95"
+license = "MIT"
+
+[lib]
+name = "deskstats_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = "0.40"
+starship-battery = "0.12"
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+nvml-wrapper = { version = "0.13", optional = true }
+
+[features]
+default = ["custom-protocol", "nvidia"]
+custom-protocol = ["tauri/custom-protocol"]
+nvidia = ["dep:nvml-wrapper"]
