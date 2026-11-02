@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -85,12 +86,16 @@ export function DeskProvider({ children }: { children: ReactNode }) {
   const accents = ACCENTS[theme];
   const motion = !settings.reduceMotion && !query.shot;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = theme;
     root.lang = lang === "zh" ? "zh-CN" : "en";
     root.classList.toggle("reduce-motion", settings.reduceMotion || query.shot);
     root.classList.toggle("is-shot", query.shot);
+  }, [theme, lang, settings.reduceMotion, query.shot]);
+
+  useEffect(() => {
+    const root = document.documentElement;
     const frame = requestAnimationFrame(() => {
       root.dataset.ready = "1";
     });

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import { formatRate } from "../lib/format";
+import { useDesk } from "../state";
 import { hexAlpha } from "../theme";
 
 export interface ChartSeries {
@@ -31,6 +32,7 @@ export function TimeChart({
   grid: string;
   interactive?: boolean;
 }) {
+  const { theme } = useDesk();
   const host = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
   const plot = useRef<uPlot | null>(null);
@@ -38,10 +40,10 @@ export function TimeChart({
 
   const colorKey = series.map((item) => item.color).join("|");
   const labelKey = series.map((item) => `${item.label}:${item.rate ? 1 : 0}:${item.fill === false ? 0 : 1}`).join("|");
-
   useEffect(() => {
     const el = host.current;
     if (!el) return;
+    const gridColor = resolveColor(grid);
     const width = Math.max(20, Math.floor(el.clientWidth));
     const chartHeight = fill ? Math.max(48, Math.floor(el.clientHeight) || height) : height;
     latest.current = { x, series };
@@ -64,7 +66,10 @@ export function TimeChart({
       },
       legend: { show: false },
       scales: {
-        x: { time: false },
+        x: {
+          time: false,
+          range: (_u, min, max) => [min, max],
+        },
         y: {
           range: (_u, min, max) => {
             if (yMax != null) return [yMin, yMax];
@@ -80,9 +85,10 @@ export function TimeChart({
         { show: false },
         {
           show: true,
-          stroke: "transparent",
-          ticks: { show: false, stroke: "transparent", size: 0 },
-          grid: { stroke: grid, width: 1 },
+          stroke: gridColor,
+          ticks: { show: false, stroke: gridColor, size: 0 },
+          border: { show: false, stroke: gridColor, width: 1 },
+          grid: { show: true, stroke: gridColor, width: 1 },
           values: () => [],
           splits: (u) => {
             const min = u.scales.y.min ?? 0;
@@ -142,7 +148,7 @@ export function TimeChart({
     // x/series are read from this render when the visual options change.
     // Streaming samples update the chart through the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [height, fill, colorKey, labelKey, grid, yMin, yMax, interactive]);
+  }, [height, fill, colorKey, labelKey, grid, theme, yMin, yMax, interactive]);
 
   useEffect(() => {
     latest.current = { x, series };
@@ -154,6 +160,13 @@ export function TimeChart({
       <div className="chart-tip num" ref={tip} />
     </div>
   );
+}
+
+function resolveColor(input: string): string {
+  const match = /var\((--[\w-]+)\)/.exec(input);
+  if (!match || typeof document === "undefined") return input;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim();
+  return value || input;
 }
 
 function toData(x: number[], series: ChartSeries[]): uPlot.AlignedData {
