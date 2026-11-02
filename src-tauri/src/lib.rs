@@ -11,8 +11,10 @@ use std::time::Duration;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(target_os = "macos")]
 use tauri::window::{Effect, EffectState, EffectsBuilder};
+#[cfg(target_os = "windows")]
+use tauri::window::{Effect, EffectsBuilder};
 use tauri::{AppHandle, Emitter, Manager, State, Theme, WebviewWindow, WindowEvent};
 
 use collect::Collector;
@@ -75,7 +77,7 @@ fn apply_material(window: &WebviewWindow, theme: Option<Theme>) -> String {
         let effect = match theme {
             Some(Theme::Light) => Effect::MicaLight,
             Some(Theme::Dark) => Effect::MicaDark,
-            None => Effect::Mica,
+            _ => Effect::Mica,
         };
         let config = EffectsBuilder::new().effect(effect).build();
         if window.set_effects(config).is_ok() {
