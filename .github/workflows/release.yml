@@ -49,9 +49,54 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: DeskStats ${{ github.ref_name }}
           releaseBody: |
-            Installers for Windows (`.msi`, NSIS `.exe`), macOS (`.dmg`), and Linux (`.deb`, `.AppImage`).
+            ## English
 
-            These builds are unsigned. Windows SmartScreen and macOS Gatekeeper will warn until the app is signed.
-            Windows CPU temperature often reads as an em dash; see the README.
+            DeskStats ${{ github.ref_name }} — a calm desktop monitor for CPU, memory, GPU, disks, network, battery, temperatures, and processes.
+
+            - Overview bento, detail pages, and a process list with end-process confirmation.
+            - Dark, light, and system themes. English and Simplified Chinese.
+            - Tray, pause, and slower sampling only when every window is hidden.
+            - Desktop widgets for CPU, memory, GPU, network, disks, and sensors: frameless, draggable, always on top or pinned to the desktop, opacity and click-through, remembered across restarts. One shared sampler.
+            - Threshold alerts (hold, cooldown, hysteresis) with native notifications and an in-app history.
+            - Optional NVIDIA readings through NVML.
+
+            Screenshots: https://github.com/jxzd123452/DeskStats#screenshots
+
+            ### Unsigned installers
+
+            These builds are **not code-signed**.
+
+            - Windows: SmartScreen may say the publisher is unknown. Choose “More info” → “Run anyway”, or install the `.msi` after you trust the file.
+            - macOS: Gatekeeper may block the app. Allow DeskStats in System Settings → Privacy & Security, or right-click the app and choose Open the first time.
+            - Linux: confirm the local `.deb` or `.AppImage`; it is not from a distro repository.
+
+            Windows often has no standard CPU temperature. The card shows an em dash unless the OS already exposes a reading.
+
+            Artifacts: Windows `.msi` and NSIS `.exe`, macOS `.dmg`, Linux `.deb` and `.AppImage`.
+
+            ## 中文
+
+            DeskStats ${{ github.ref_name }}。一台忙碌电脑的从容视图：CPU、内存、显卡、磁盘、网络、电池、温度和进程。
+
+            - 总览 bento、详情页，以及带结束确认的进程列表。
+            - 深色、浅色、跟随系统。英文和简体中文。
+            - 托盘、暂停采样；只有所有窗口都隐藏时才降低采样。
+            - 桌面小组件：CPU、内存、显卡、网络、磁盘、传感器。无边框、可拖拽，可置顶或贴在桌面，可调不透明度和点击穿透，重启后保留位置。所有窗口共用一套采样。
+            - 阈值告警（持续时间、冷却、回差），系统通知和应用内历史。
+            - 可选的 NVIDIA NVML 读数。
+
+            截图：https://github.com/jxzd123452/DeskStats/blob/main/README.zh-CN.md#截图
+
+            ### 未签名安装包
+
+            这些构建**没有代码签名**。
+
+            - Windows：SmartScreen 可能提示发布者未知。选择「更多信息」→「仍要运行」，或在确认文件后安装 `.msi`。
+            - macOS：Gatekeeper 可能拦截。到「系统设置 → 隐私与安全性」允许 DeskStats，或第一次右键点「打开」。
+            - Linux：`.deb` 和 `.AppImage` 不是发行版仓库里的包，安装时需要确认。
+
+            Windows 经常没有标准的 CPU 温度接口。系统没有暴露读数时，卡片显示破折号。
+
+            产物：Windows `.msi` 与 NSIS `.exe`，macOS `.dmg`，Linux `.deb` 与 `.AppImage`。
           releaseDraft: false
           prerelease: false
