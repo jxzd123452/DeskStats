@@ -9,4 +9,6 @@ commands.allow = [
   "host_meta",
   "set_window_theme",
   "set_tray_labels",
+  "sync_widgets",
+  "begin_widget_resize",
 ]

@@ -13,8 +13,12 @@ const browser = await puppeteer.launch({
   defaultViewport: { width: 1280, height: 800, deviceScaleFactor: 1 },
 });
 
-async function shoot(name, query) {
+const only = new Set((process.env.SHOTS ?? "").split(",").filter(Boolean));
+
+async function shoot(name, query, viewport) {
+  if (only.size > 0 && !only.has(name)) return;
   const page = await browser.newPage();
+  if (viewport) await page.setViewport(viewport);
   await page.goto(`${base}/?${query}`, { waitUntil: "networkidle0" });
   await page.waitForFunction(() => document.documentElement.dataset.ready === "1");
   await page.evaluate(() => document.fonts.ready);
@@ -29,6 +33,15 @@ await shoot("overview-light.png", "shot=1&theme=light&lang=en&page=overview&tick
 await shoot("processes.png", "shot=1&theme=dark&lang=en&page=processes&tick=72");
 await shoot("cpu-detail.png", "shot=1&theme=dark&lang=en&page=cpu&tick=72");
 await shoot("overview-dark-zh.png", "shot=1&theme=dark&lang=zh&page=overview&tick=72");
+await shoot("widgets-desktop.png", "shot=1&theme=dark&lang=en&page=widgets&tick=72");
+await shoot("widgets-desktop-zh.png", "shot=1&theme=dark&lang=zh&page=widgets&tick=72");
+await shoot("alerts-settings.png", "shot=1&theme=dark&lang=en&page=settings&panel=alerts&tick=72");
+await shoot("alerts-settings-zh.png", "shot=1&theme=dark&lang=zh&page=settings&panel=alerts&tick=72");
+
+if (only.size > 0) {
+  await browser.close();
+  process.exit(0);
+}
 
 const gifPage = await browser.newPage();
 await gifPage.goto(`${base}/?theme=dark&lang=en&page=overview&interval=500&tick=60`, {

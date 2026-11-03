@@ -2,7 +2,15 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "DeskStats main window",
-  "windows": ["main"],
+  "windows": [
+    "main",
+    "widget-cpu",
+    "widget-memory",
+    "widget-gpu",
+    "widget-network",
+    "widget-disks",
+    "widget-sensors"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-minimize",
@@ -17,6 +25,7 @@
     "core:window:allow-is-visible",
     "core:window:allow-is-minimized",
     "core:window:allow-set-effects",
+    "notification:default",
     "allow-deskstats"
   ]
 }

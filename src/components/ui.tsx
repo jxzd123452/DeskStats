@@ -5,13 +5,15 @@ export function Card({
   accent,
   className,
   children,
+  id,
 }: {
   accent: string;
   className?: string;
   children: ReactNode;
+  id?: string;
 }) {
   return (
-    <article className={`card ${className ?? ""}`} style={{ "--accent": accent } as CSSProperties}>
+    <article id={id} className={`card ${className ?? ""}`} style={{ "--accent": accent } as CSSProperties}>
       {children}
     </article>
   );

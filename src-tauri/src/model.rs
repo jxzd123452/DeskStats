@@ -163,6 +163,14 @@ pub struct TrayLabels {
     pub resume: String,
     pub quit: String,
     pub tooltip_paused: String,
+    pub widgets: String,
+    pub unlock: String,
+    pub widget_cpu: String,
+    pub widget_memory: String,
+    pub widget_gpu: String,
+    pub widget_network: String,
+    pub widget_disks: String,
+    pub widget_sensors: String,
 }
 
 impl Default for TrayLabels {
@@ -173,8 +181,50 @@ impl Default for TrayLabels {
             resume: "Resume sampling".into(),
             quit: "Quit".into(),
             tooltip_paused: "Paused".into(),
+            widgets: "Widgets".into(),
+            unlock: "Unlock widgets".into(),
+            widget_cpu: "CPU".into(),
+            widget_memory: "Memory".into(),
+            widget_gpu: "GPU".into(),
+            widget_network: "Network".into(),
+            widget_disks: "Disks".into(),
+            widget_sensors: "Sensors".into(),
         }
     }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WidgetFlags {
+    pub cpu: bool,
+    pub memory: bool,
+    pub gpu: bool,
+    pub network: bool,
+    pub disks: bool,
+    pub sensors: bool,
+    pub any_locked: bool,
+}
+
+/// Geometry and chrome for one desktop widget. Opacity stays in the webview.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WidgetSpec {
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub open: bool,
+    #[serde(default)]
+    pub x: f64,
+    #[serde(default)]
+    pub y: f64,
+    #[serde(default)]
+    pub width: f64,
+    #[serde(default)]
+    pub height: f64,
+    #[serde(default)]
+    pub mode: String,
+    #[serde(default)]
+    pub click_through: bool,
 }
 
 pub fn empty_snapshot(demo: bool) -> Snapshot {

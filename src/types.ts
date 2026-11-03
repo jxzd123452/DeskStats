@@ -111,7 +111,8 @@ export type Page =
   | "disk"
   | "network"
   | "processes"
-  | "settings";
+  | "settings"
+  | "widgets";
 
 export type ThemeSetting = "system" | "dark" | "light";
 export type LangSetting = "system" | "en" | "zh";

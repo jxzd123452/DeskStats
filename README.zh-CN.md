@@ -20,6 +20,10 @@
 | --- | --- |
 | <img src="docs/processes.png" alt="进程列表" width="440"> | <img src="docs/cpu-detail.png" alt="处理器详情" width="440"> |
 
+| 小组件 | 告警 |
+| --- | --- |
+| <img src="docs/widgets-desktop-zh.png" alt="桌面小组件" width="440"> | <img src="docs/alerts-settings-zh.png" alt="告警规则" width="440"> |
+
 <p align="center">
   <img src="docs/overview.gif" alt="总览动态" width="640">
 </p>
@@ -27,11 +31,13 @@
 ## 功能
 
 - 总览 bento：CPU（总占用、每核心热力、60 秒曲线）、内存与交换区、显卡、磁盘、网络上下行、电池、温度、主机与运行时间。
+- 桌面小组件：CPU、内存、显卡、网络、磁盘、传感器。每个都是可拖拽的无边框小窗，可置顶或贴在桌面，调节不透明度，并可锁定为点击穿透。从卡片、托盘或设置里打开和关闭。位置、大小和打开了哪些会在重启后保留。所有窗口共用同一套采样。
+- 阈值告警：CPU、内存、显卡、温度、磁盘剩余空间、低电量。每条规则有持续时间、冷却时间和回差，避免反复打扰。通过系统原生通知提醒，并在应用内保留最近记录。
 - 进程页：搜索、排序、结束进程前二次确认。
 - CPU、内存、显卡、磁盘、网络详情页（60 秒或 5 分钟）。
 - 深色、浅色、跟随系统。界面语言跟随系统，可在设置里切换英文和简体中文。
 - Windows 11 使用 Mica，macOS 使用振动模糊（vibrancy），Linux 回退为纯色石墨底。
-- 采样间隔 0.5 / 1 / 2 / 5 秒。窗口隐藏或最小化时降为 4 倍（至少 2 秒）。
+- 采样间隔 0.5 / 1 / 2 / 5 秒。所有 DeskStats 窗口都隐藏或最小化时降为 4 倍（至少 2 秒）。有小组件开着时保持正常采样。
 - 托盘：显示、暂停、退出，提示里带 CPU / 内存。
 - NVIDIA 读数走 NVML（默认开启的 `nvidia` 特性）。驱动库不存在时自动退回 `sysinfo`，温度留空，不会报错退出。
 - 演示模式，方便截图和无界面环境。
@@ -92,7 +98,7 @@ npm run tauri dev -- --demo
 DESKSTATS_DEMO=1 npm run tauri dev
 ```
 
-截图可用查询参数：`shot=1`、`theme=dark|light`、`lang=en|zh`、`page=overview|cpu|memory|gpu|disk|network|processes|settings`。
+截图可用查询参数：`shot=1`、`theme=dark|light`、`lang=en|zh`、`page=overview|cpu|memory|gpu|disk|network|processes|settings|widgets`。设置页还可以用 `panel=general|widgets|alerts`。
 
 ### 测试
 
@@ -110,11 +116,11 @@ Linux：部分 Wayland 环境需要 `WEBKIT_DISABLE_DMABUF_RENDERER=1`。托盘�
 
 ## 路线图
 
-- **v1.1 通知 / 告警。** CPU、内存、温度、磁盘空间和低电量阈值。持续一段时间才触发，并带冷却时间。
-- **v1.2 小组件模式。** 任意卡片弹出为无边框置顶小窗，可拖拽、锁定、调节透明度。托盘迷你面板。
-- **v1.3 深度传感器。** Windows 上可选的 LibreHardwareMonitor（PawnIO）边车进程，读取 CPU 温度、风扇、电压和功耗，并明确提示需要管理员。macOS 读取 SMC 温度和风扇。
-- **v1.4 历史与导出。** 本地 SQLite 保存 24 小时 / 7 天曲线，支持 CSV 导出。
-- **v1.5 主题与布局。** Catppuccin、Nord、Dracula 等预设、自定义强调色，以及可拖拽保存的卡片布局。
+- [x] **v1.1 告警。** CPU、内存、显卡、温度、磁盘剩余空间和低电量阈值。持续一段时间才触发，带冷却和回差。
+- [x] **v1.2 小组件模式。** 把 CPU、内存、显卡、网络、磁盘或传感器弹出为无边框小窗。可拖拽、置顶或贴在桌面、调节透明度、锁定点击穿透。
+- [ ] **v1.3 深度传感器。** Windows 上可选的 LibreHardwareMonitor（PawnIO）边车进程，读取 CPU 温度、风扇、电压和功耗，并明确提示需要管理员。macOS 读取 SMC 温度和风扇。
+- [ ] **v1.4 历史与导出。** 本地 SQLite 保存 24 小时 / 7 天曲线，支持 CSV 导出。
+- [ ] **v1.5 主题与布局。** Catppuccin、Nord、Dracula 等预设、自定义强调色，以及可拖拽保存的卡片布局。
 
 之后：开机启动、自动更新、菜单栏实时速率、默认关闭的局域网查看，以及可插拔数据源。
 

@@ -22,14 +22,17 @@ function percentOfSafe(used: number, total: number): number {
 }
 
 export function appendSample(history: Sample[], snap: Snapshot, keepMs = 5 * 60 * 1000): Sample[] {
-  const sample = sampleFrom(snap);
-  const withoutDup =
-    history.length > 0 && history[history.length - 1].t === sample.t
-      ? history.slice(0, -1)
-      : history;
-  const next = [...withoutDup, sample];
-  const cut = sample.t - keepMs;
-  return next.filter((point) => point.t >= cut).slice(-360);
+  return mergeHistory(history, [sampleFrom(snap)], keepMs);
+}
+
+export function mergeHistory(current: Sample[], incoming: Sample[], keepMs = 5 * 60 * 1000): Sample[] {
+  const map = new Map<number, Sample>();
+  for (const sample of current) map.set(sample.t, sample);
+  for (const sample of incoming) map.set(sample.t, sample);
+  const merged = [...map.values()].sort((a, b) => a.t - b.t);
+  if (merged.length === 0) return [];
+  const end = merged[merged.length - 1].t;
+  return merged.filter((point) => point.t >= end - keepMs).slice(-360);
 }
 
 export interface Series {
