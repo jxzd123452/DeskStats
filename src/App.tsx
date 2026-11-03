@@ -4,10 +4,14 @@ import { CpuPage, DiskPage, GpuPage, MemoryPage, NetworkPage } from "./pages/Det
 import { Overview } from "./pages/Overview";
 import { ProcessesPage } from "./pages/Processes";
 import { SettingsPage } from "./pages/Settings";
+import { DesktopScene } from "./pages/DesktopScene";
+import { WidgetWindow } from "./pages/WidgetWindow";
 import { useDesk } from "./state";
 
 export function App() {
   const desk = useDesk();
+  if (desk.role.type === "scene") return <DesktopScene />;
+  if (desk.role.type === "widget") return <WidgetWindow kind={desk.role.kind} />;
   return (
     <>
       <Shell

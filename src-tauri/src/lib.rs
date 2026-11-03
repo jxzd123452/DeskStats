@@ -3,13 +3,14 @@ mod demo;
 mod gpu_nvml;
 mod metrics;
 mod model;
+mod widgets;
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
-use tauri::menu::{CheckMenuItem, Menu, MenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 #[cfg(target_os = "macos")]
 use tauri::window::{Effect, EffectState, EffectsBuilder};
@@ -22,7 +23,8 @@ use demo::DemoEngine;
 use metrics::{
     effective_interval_ms, format_bytes, format_rate, format_uptime, percent_of, sanitize_interval,
 };
-use model::{empty_snapshot, HostMeta, SamplerSettings, Snapshot, TrayLabels};
+use model::{empty_snapshot, HostMeta, SamplerSettings, Snapshot, TrayLabels, WidgetFlags};
+use widgets::{any_widget_open, foreground_hidden, WidgetHost};
 
 struct AppState {
     settings: Mutex<SamplerSettings>,
@@ -32,6 +34,7 @@ struct AppState {
     demo: bool,
     material: Mutex<String>,
     labels: Mutex<TrayLabels>,
+    flags: Mutex<WidgetFlags>,
 }
 
 impl AppState {
@@ -49,6 +52,7 @@ impl AppState {
             demo,
             material: Mutex::new("solid".into()),
             labels: Mutex::new(TrayLabels::default()),
+            flags: Mutex::new(WidgetFlags::default()),
         }
     }
 }
@@ -98,12 +102,7 @@ fn apply_material(window: &WebviewWindow, theme: Option<Theme>) -> String {
 }
 
 fn window_is_hidden(app: &AppHandle) -> bool {
-    let Some(window) = app.get_webview_window("main") else {
-        return true;
-    };
-    let minimized = window.is_minimized().unwrap_or(false);
-    let visible = window.is_visible().unwrap_or(true);
-    minimized || !visible
+    foreground_hidden(app)
 }
 
 fn reveal(app: &AppHandle) {
@@ -141,8 +140,9 @@ fn tooltip(snap: &Snapshot, labels: &TrayLabels) -> String {
     )
 }
 
-fn refresh_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<()> {
+fn build_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<Menu<tauri::Wry>> {
     let labels = lock(&state.labels).clone();
+    let flags = lock(&state.flags).clone();
     let paused = state.paused.load(Ordering::Relaxed);
     let pause_text = if paused {
         &labels.resume
@@ -151,10 +151,80 @@ fn refresh_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<()> {
     };
     let show = MenuItem::with_id(app, "show", &labels.show, true, None::<&str>)?;
     let pause = CheckMenuItem::with_id(app, "pause", pause_text, true, paused, None::<&str>)?;
+    let cpu = CheckMenuItem::with_id(
+        app,
+        "widget-cpu",
+        &labels.widget_cpu,
+        true,
+        flags.cpu,
+        None::<&str>,
+    )?;
+    let memory = CheckMenuItem::with_id(
+        app,
+        "widget-memory",
+        &labels.widget_memory,
+        true,
+        flags.memory,
+        None::<&str>,
+    )?;
+    let gpu = CheckMenuItem::with_id(
+        app,
+        "widget-gpu",
+        &labels.widget_gpu,
+        true,
+        flags.gpu,
+        None::<&str>,
+    )?;
+    let network = CheckMenuItem::with_id(
+        app,
+        "widget-network",
+        &labels.widget_network,
+        true,
+        flags.network,
+        None::<&str>,
+    )?;
+    let disks = CheckMenuItem::with_id(
+        app,
+        "widget-disks",
+        &labels.widget_disks,
+        true,
+        flags.disks,
+        None::<&str>,
+    )?;
+    let sensors = CheckMenuItem::with_id(
+        app,
+        "widget-sensors",
+        &labels.widget_sensors,
+        true,
+        flags.sensors,
+        None::<&str>,
+    )?;
+    let widgets = Submenu::with_items(
+        app,
+        &labels.widgets,
+        true,
+        &[&cpu, &memory, &gpu, &network, &disks, &sensors],
+    )?;
+    let unlock = MenuItem::with_id(
+        app,
+        "widget-unlock",
+        &labels.unlock,
+        flags.any_locked,
+        None::<&str>,
+    )?;
+    let sep_a = PredefinedMenuItem::separator(app)?;
+    let sep_b = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", &labels.quit, true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &pause, &quit])?;
+    Menu::with_items(
+        app,
+        &[&show, &pause, &sep_a, &widgets, &unlock, &sep_b, &quit],
+    )
+}
+
+fn refresh_tray_menu(app: &AppHandle, state: &AppState) -> tauri::Result<()> {
+    let labels = lock(&state.labels).clone();
     if let Some(tray) = app.tray_by_id("main") {
-        tray.set_menu(Some(menu))?;
+        tray.set_menu(Some(build_tray_menu(app, state)?))?;
         let snap = lock(&state.latest).clone();
         let _ = tray.set_tooltip(Some(tooltip(&snap, &labels)));
     }
@@ -165,6 +235,7 @@ fn spawn_sampler(app: AppHandle, state: Arc<AppState>) {
     std::thread::Builder::new()
         .name("deskstats-sampler".into())
         .spawn(move || {
+            // One collector for the process. Widget windows only listen.
             let mut collector = if state.demo {
                 None
             } else {
@@ -261,8 +332,14 @@ fn set_window_theme(theme: String, window: WebviewWindow, state: State<'_, Arc<A
 }
 
 #[tauri::command]
-fn set_tray_labels(labels: TrayLabels, app: AppHandle, state: State<'_, Arc<AppState>>) {
+fn set_tray_labels(
+    labels: TrayLabels,
+    flags: WidgetFlags,
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+) {
     *lock(&state.labels) = labels;
+    *lock(&state.flags) = flags;
     let _ = refresh_tray_menu(&app, &state);
 }
 
@@ -270,38 +347,41 @@ fn set_tray_labels(labels: TrayLabels, app: AppHandle, state: State<'_, Arc<AppS
 pub fn run() {
     let demo = demo_enabled();
     let state = Arc::new(AppState::new(demo));
+    let widget_host = Arc::new(WidgetHost::default());
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(state.clone())
+        .manage(widget_host)
         .setup(move |app| {
             let handle = app.handle().clone();
             if let Some(icon) = app.default_window_icon().cloned() {
-                let show =
-                    MenuItem::with_id(&handle, "show", "Show DeskStats", true, None::<&str>)?;
-                let pause = CheckMenuItem::with_id(
-                    &handle,
-                    "pause",
-                    "Pause sampling",
-                    true,
-                    false,
-                    None::<&str>,
-                )?;
-                let quit = MenuItem::with_id(&handle, "quit", "Quit", true, None::<&str>)?;
-                let menu = Menu::with_items(&handle, &[&show, &pause, &quit])?;
+                let menu = build_tray_menu(&handle, &state)?;
                 let tray_state = state.clone();
                 TrayIconBuilder::with_id("main")
                     .icon(icon)
                     .tooltip("DeskStats")
                     .menu(&menu)
                     .show_menu_on_left_click(false)
-                    .on_menu_event(move |app, event| match event.id.as_ref() {
-                        "quit" => app.exit(0),
-                        "show" => reveal(app),
-                        "pause" => {
-                            let next = !tray_state.paused.load(Ordering::Relaxed);
-                            tray_state.paused.store(next, Ordering::Relaxed);
-                            let _ = refresh_tray_menu(app, &tray_state);
+                    .on_menu_event(move |app, event| {
+                        let id = event.id.as_ref();
+                        match id {
+                            "quit" => app.exit(0),
+                            "show" => reveal(app),
+                            "pause" => {
+                                let next = !tray_state.paused.load(Ordering::Relaxed);
+                                tray_state.paused.store(next, Ordering::Relaxed);
+                                let _ = refresh_tray_menu(app, &tray_state);
+                            }
+                            "widget-unlock" => {
+                                let _ = app.emit("widget-unlock", true);
+                            }
+                            _ if id.starts_with("widget-") => {
+                                if let Some(kind) = id.strip_prefix("widget-") {
+                                    let _ = app.emit_to("main", "widget-toggle", kind.to_string());
+                                }
+                            }
+                            _ => {}
                         }
-                        _ => {}
                     })
                     .on_tray_icon_event(|tray, event| {
                         if let TrayIconEvent::Click {
@@ -323,7 +403,11 @@ pub fn run() {
                 let close_handle = handle.clone();
                 window.on_window_event(move |event| {
                     if let WindowEvent::CloseRequested { api, .. } = event {
-                        if lock(&close_state.settings).close_to_tray {
+                        // Keep the process alive while widgets are open so they
+                        // share the sampler and the main window can keep evaluating alerts.
+                        if lock(&close_state.settings).close_to_tray
+                            || any_widget_open(&close_handle)
+                        {
                             api.prevent_close();
                             if let Some(win) = close_handle.get_webview_window("main") {
                                 let _ = win.hide();
@@ -343,7 +427,9 @@ pub fn run() {
             kill_process,
             host_meta,
             set_window_theme,
-            set_tray_labels
+            set_tray_labels,
+            widgets::sync_widgets,
+            widgets::begin_widget_resize
         ])
         .run(tauri::generate_context!())
         .expect("error while running DeskStats");

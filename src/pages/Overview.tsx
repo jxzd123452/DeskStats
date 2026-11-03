@@ -1,16 +1,18 @@
 import type { CSSProperties } from "react";
 import { TimeChart } from "../components/Chart";
+import { PopIcon } from "../components/WidgetFace";
 import { AnimatedPercent, Avatar, BigStat, Card, HeatGrid, Kicker, Meter, Qty, Ring } from "../components/ui";
 import { formatDuration, formatGhz, formatRate, formatUptime, percentOf } from "../lib/format";
 import { windowSeries } from "../lib/history";
 import { topProcesses } from "../lib/processes";
 import { pickCpuTemp, pickGpuTemp } from "../lib/sensors";
 import { metricColor } from "../theme";
+import type { WidgetKind } from "../lib/widgets";
 import { useDesk } from "../state";
 import type { MessageKey } from "../i18n";
 
 export function Overview() {
-  const { snap, history, accents, t, lang, motion, setPage, shot } = useDesk();
+  const { snap, history, accents, t, lang, motion, setPage, shot, widgets, toggleWidget } = useDesk();
   const ready = snap.demo || snap.timestampMs > 0;
   const cpuColor = metricColor(accents.cpu, snap.cpu.usage, accents);
   const memPct = percentOf(snap.memory.used, snap.memory.total);
@@ -32,7 +34,8 @@ export function Overview() {
   return (
     <div className="page">
       <div className="bento">
-        <Card accent={accents.cpu} className="span-6 row-2 cpu">
+        <Card accent={accents.cpu} className={popClass(shot, "span-6 row-2 cpu")}>
+          <PopButton kind="cpu" shot={shot} open={widgets.widgets.some((item) => item.kind === "cpu" && item.open)} label={t(widgets.widgets.some((item) => item.kind === "cpu" && item.open) ? "popIn" : "popOut")} onClick={() => toggleWidget("cpu")} />
           <div className="card-head">
             <div style={{ minWidth: 0 }}>
               <Kicker>{t("section.cpu")}</Kicker>
@@ -66,7 +69,8 @@ export function Overview() {
           <HeatGrid cells={snap.cpu.cores} accent={cpuColor} />
         </Card>
 
-        <Card accent={accents.memory} className="span-3 mem">
+        <Card accent={accents.memory} className={popClass(shot, "span-3 mem")}>
+          <PopButton kind="memory" shot={shot} open={isOpen(widgets, "memory")} label={t(isOpen(widgets, "memory") ? "popIn" : "popOut")} onClick={() => toggleWidget("memory")} />
           <Kicker>{t("section.memory")}</Kicker>
           <div className="split">
             <Ring value={memPct} color={memColor} size={84}>
@@ -96,7 +100,8 @@ export function Overview() {
           </div>
         </Card>
 
-        <Card accent={accents.gpu} className="span-3 gpu">
+        <Card accent={accents.gpu} className={popClass(shot, "span-3 gpu")}>
+          <PopButton kind="gpu" shot={shot} open={isOpen(widgets, "gpu")} label={t(isOpen(widgets, "gpu") ? "popIn" : "popOut")} onClick={() => toggleWidget("gpu")} />
           <div className="card-head">
             <Kicker>{t("section.gpu")}</Kicker>
             <span className="temp-pill num" style={{ "--pill": accents.temp } as CSSProperties}>
@@ -130,7 +135,8 @@ export function Overview() {
           )}
         </Card>
 
-        <Card accent={accents.down} className="span-6 net">
+        <Card accent={accents.down} className={popClass(shot, "span-6 net")}>
+          <PopButton kind="network" shot={shot} open={isOpen(widgets, "network")} label={t(isOpen(widgets, "network") ? "popIn" : "popOut")} onClick={() => toggleWidget("network")} />
           <div className="card-head">
             <Kicker>{t("section.network")}</Kicker>
             <span className="sub truncate">{snap.network.interfaceName || t("noNetwork")}</span>
@@ -167,7 +173,8 @@ export function Overview() {
           </div>
         </Card>
 
-        <Card accent={accents.disk} className="span-4 disk">
+        <Card accent={accents.disk} className={popClass(shot, "span-4 disk")}>
+          <PopButton kind="disks" shot={shot} open={isOpen(widgets, "disks")} label={t(isOpen(widgets, "disks") ? "popIn" : "popOut")} onClick={() => toggleWidget("disks")} />
           <Kicker>{t("section.disk")}</Kicker>
           <div className="disk-list">
             {snap.disks.length === 0 ? (
@@ -192,7 +199,8 @@ export function Overview() {
           </div>
         </Card>
 
-        <Card accent={accents.temp} className="span-4 temp">
+        <Card accent={accents.temp} className={popClass(shot, "span-4 temp")}>
+          <PopButton kind="sensors" shot={shot} open={isOpen(widgets, "sensors")} label={t(isOpen(widgets, "sensors") ? "popIn" : "popOut")} onClick={() => toggleWidget("sensors")} />
           <Kicker>{t("section.sensors")}</Kicker>
           {snap.temperatures.length === 0 ? (
             <div className="empty">
@@ -266,6 +274,46 @@ export function Overview() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function isOpen(widgets: { widgets: { kind: WidgetKind; open: boolean }[] }, kind: WidgetKind) {
+  return widgets.widgets.some((item) => item.kind === kind && item.open);
+}
+
+function popClass(shot: boolean, className: string) {
+  return shot ? className : `${className} has-pop`;
+}
+
+function PopButton({
+  kind,
+  shot,
+  open,
+  label,
+  onClick,
+}: {
+  kind: WidgetKind;
+  shot: boolean;
+  open: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  if (shot) return null;
+  return (
+    <button
+      type="button"
+      className="pop-btn"
+      data-kind={kind}
+      aria-pressed={open}
+      aria-label={label}
+      title={label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+    >
+      <PopIcon />
+    </button>
   );
 }
 

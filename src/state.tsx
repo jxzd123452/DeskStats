@@ -10,8 +10,10 @@ import {
   type ReactNode,
 } from "react";
 import { translate, type Lang, type MessageKey } from "./i18n";
+import type { AlertHistoryItem, AlertRule } from "./lib/alerts";
 import { demoSnapshot, SHOT_TICK } from "./lib/demo";
-import { appendSample, sampleFrom } from "./lib/history";
+import { appendSample, mergeHistory, sampleFrom } from "./lib/history";
+import { publishLive, subscribeLive } from "./lib/live-bus";
 import {
   browserDemo,
   hiddenInterval,
@@ -21,8 +23,11 @@ import {
   resolveLang,
   saveSettings,
 } from "./lib/settings";
+import { detectRole, placementOf, type AppRole, type WidgetKind, type WidgetPatch, type WidgetState } from "./lib/widgets";
 import { ACCENTS, type AccentSet } from "./theme";
 import type { HostMeta, Page, ProcessInfo, Sample, Settings, Snapshot } from "./types";
+import { useAlerts } from "./use-alerts";
+import { useWidgets } from "./use-widgets";
 
 interface DeskContext {
   page: Page;
@@ -46,6 +51,14 @@ interface DeskContext {
   toast: string | null;
   shot: boolean;
   loading: boolean;
+  role: AppRole;
+  widgets: WidgetState;
+  toggleWidget: (kind: WidgetKind, open?: boolean) => void;
+  patchWidget: (kind: WidgetKind, patch: WidgetPatch, sync: boolean) => void;
+  alertRules: AlertRule[];
+  alertHistory: AlertHistoryItem[];
+  updateAlertRule: (id: string, patch: Partial<AlertRule>) => void;
+  clearAlertHistory: () => void;
 }
 
 const Ctx = createContext<DeskContext | null>(null);
@@ -58,6 +71,7 @@ function seed(tick: number, killed: Set<number>) {
 
 export function DeskProvider({ children }: { children: ReactNode }) {
   const query = useMemo(() => readQuery(window.location.search), []);
+  const role = useMemo(() => detectRole(window.location.search), []);
   const demo = useMemo(() => browserDemo(), []);
   const [settings, setSettings] = useState<Settings>(() => {
     const stored = loadSettings();
@@ -92,7 +106,11 @@ export function DeskProvider({ children }: { children: ReactNode }) {
     root.lang = lang === "zh" ? "zh-CN" : "en";
     root.classList.toggle("reduce-motion", settings.reduceMotion || query.shot);
     root.classList.toggle("is-shot", query.shot);
-  }, [theme, lang, settings.reduceMotion, query.shot]);
+    if (role.type === "widget") root.dataset.widget = role.kind;
+    else delete root.dataset.widget;
+    if (role.type === "scene") root.dataset.scene = "1";
+    else delete root.dataset.scene;
+  }, [theme, lang, settings.reduceMotion, query.shot, role]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -118,6 +136,19 @@ export function DeskProvider({ children }: { children: ReactNode }) {
     (key: MessageKey, vars?: Record<string, string | number>) => translate(lang, key, vars),
     [lang],
   );
+  const { widgets, toggleWidget, patchWidget } = useWidgets(role, query.shot);
+  const { rules: alertRules, history: alertHistory, updateRule: updateAlertRule, clearHistory: clearAlertHistory } = useAlerts({
+    active: role.type === "main",
+    shot: query.shot,
+    paused,
+    snap,
+    lang,
+    t,
+  });
+  const historyRef = useRef(history);
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
 
   useEffect(() => {
     if (!demo || query.shot) return;
@@ -129,6 +160,7 @@ export function DeskProvider({ children }: { children: ReactNode }) {
       const next = demoSnapshot(tick.current, killed.current);
       setSnap(next);
       setHistory((prev) => appendSample(prev, next));
+      if (role.type === "main") publishLive({ type: "sample", sample: sampleFrom(next) });
     };
     const arm = () => {
       window.clearInterval(timer);
@@ -140,7 +172,7 @@ export function DeskProvider({ children }: { children: ReactNode }) {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", arm);
     };
-  }, [demo, query.shot, settings.intervalMs, settings.slowWhenHidden, paused]);
+  }, [demo, query.shot, settings.intervalMs, settings.slowWhenHidden, paused, role.type]);
 
   useEffect(() => {
     if (demo || !isTauri()) return;
@@ -151,7 +183,7 @@ export function DeskProvider({ children }: { children: ReactNode }) {
       const { listen } = await import("@tauri-apps/api/event");
       const meta = await invoke<HostMeta>("host_meta");
       if (cancelled) return;
-      document.documentElement.dataset.material = meta.material;
+      if (role.type === "main") document.documentElement.dataset.material = meta.material;
       const initial = await invoke<Snapshot>("get_snapshot");
       if (initial.timestampMs > 0) {
         setSnap(initial);
@@ -160,7 +192,10 @@ export function DeskProvider({ children }: { children: ReactNode }) {
       const unlisten = await listen<Snapshot>("snapshot", (event) => {
         setSnap(event.payload);
         setPausedState(event.payload.paused);
-        if (!event.payload.paused) setHistory((prev) => appendSample(prev, event.payload));
+        if (!event.payload.paused) {
+          setHistory((prev) => appendSample(prev, event.payload));
+          if (role.type === "main") publishLive({ type: "sample", sample: sampleFrom(event.payload) });
+        }
       });
       if (cancelled) unlisten();
       else stop = unlisten;
@@ -169,10 +204,24 @@ export function DeskProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       stop();
     };
-  }, [demo]);
+  }, [demo, role.type]);
 
   useEffect(() => {
-    if (demo || !isTauri()) return;
+    if (role.type === "main") {
+      return subscribeLive((message) => {
+        if (message.type === "hello") publishLive({ type: "seed", history: historyRef.current });
+      });
+    }
+    if (role.type !== "widget") return;
+    publishLive({ type: "hello" });
+    return subscribeLive((message) => {
+      if (message.type === "seed") setHistory((prev) => mergeHistory(prev, message.history));
+      if (message.type === "sample") setHistory((prev) => mergeHistory(prev, [message.sample]));
+    });
+  }, [role.type]);
+
+  useEffect(() => {
+    if (demo || !isTauri() || role.type !== "main") return;
     void (async () => {
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("apply_settings", {
@@ -184,6 +233,7 @@ export function DeskProvider({ children }: { children: ReactNode }) {
       });
       await invoke("set_window_theme", { theme });
       await invoke("set_paused", { paused });
+      const open = (kind: WidgetKind) => placementOf(widgets, kind).open;
       await invoke("set_tray_labels", {
         labels: {
           show: translate(lang, "trayShow"),
@@ -191,10 +241,27 @@ export function DeskProvider({ children }: { children: ReactNode }) {
           resume: translate(lang, "trayResume"),
           quit: translate(lang, "trayQuit"),
           tooltipPaused: translate(lang, "trayPaused"),
+          widgets: translate(lang, "trayWidgets"),
+          unlock: translate(lang, "trayUnlock"),
+          widgetCpu: translate(lang, "metric.cpu"),
+          widgetMemory: translate(lang, "metric.memory"),
+          widgetGpu: translate(lang, "metric.gpu"),
+          widgetNetwork: translate(lang, "metric.network"),
+          widgetDisks: translate(lang, "metric.disks"),
+          widgetSensors: translate(lang, "metric.sensors"),
+        },
+        flags: {
+          cpu: open("cpu"),
+          memory: open("memory"),
+          gpu: open("gpu"),
+          network: open("network"),
+          disks: open("disks"),
+          sensors: open("sensors"),
+          anyLocked: widgets.widgets.some((item) => item.clickThrough),
         },
       });
     })();
-  }, [demo, settings.intervalMs, settings.slowWhenHidden, settings.closeToTray, theme, paused, lang]);
+  }, [demo, settings.intervalMs, settings.slowWhenHidden, settings.closeToTray, theme, paused, lang, role.type, widgets]);
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     setSettings((prev) => ({ ...prev, ...patch }));
@@ -258,6 +325,14 @@ export function DeskProvider({ children }: { children: ReactNode }) {
       toast,
       shot: query.shot,
       loading: !snap.demo && snap.timestampMs === 0,
+      role,
+      widgets,
+      toggleWidget,
+      patchWidget,
+      alertRules,
+      alertHistory,
+      updateAlertRule,
+      clearAlertHistory,
     }),
     [
       page,
@@ -279,6 +354,14 @@ export function DeskProvider({ children }: { children: ReactNode }) {
       confirmKill,
       toast,
       query.shot,
+      role,
+      widgets,
+      toggleWidget,
+      patchWidget,
+      alertRules,
+      alertHistory,
+      updateAlertRule,
+      clearAlertHistory,
     ],
   );
 

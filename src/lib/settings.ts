@@ -1,5 +1,7 @@
 import { detectLang } from "../i18n";
 import type { IntervalMs, LangSetting, Page, Settings, ThemeSetting } from "../types";
+
+export type SettingsPanel = "general" | "widgets" | "alerts";
 import { INTERVALS, sanitizeInterval } from "./format";
 
 const KEY = "deskstats.v1";
@@ -68,9 +70,11 @@ export interface BootQuery {
   shot: boolean;
   tick: number;
   intervalMs?: IntervalMs;
+  panel: SettingsPanel;
 }
 
-const PAGES: Page[] = ["overview", "cpu", "memory", "gpu", "disk", "network", "processes", "settings"];
+const PAGES: Page[] = ["overview", "cpu", "memory", "gpu", "disk", "network", "processes", "settings", "widgets"];
+const PANELS: SettingsPanel[] = ["general", "widgets", "alerts"];
 
 export function readQuery(search: string): BootQuery {
   const q = new URLSearchParams(search);
@@ -86,6 +90,7 @@ export function readQuery(search: string): BootQuery {
     shot: q.get("shot") === "1",
     tick: Number.isFinite(tick) ? tick : 72,
     intervalMs: INTERVALS.includes(interval as IntervalMs) ? (interval as IntervalMs) : undefined,
+    panel: PANELS.includes(q.get("panel") as SettingsPanel) ? (q.get("panel") as SettingsPanel) : "general",
   };
 }
 

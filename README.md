@@ -20,6 +20,10 @@ The pictures below are the built-in demo dashboard (1280×800), so they stay rep
 | --- | --- |
 | <img src="docs/processes.png" alt="Process list" width="440"> | <img src="docs/cpu-detail.png" alt="CPU detail" width="440"> |
 
+| Widgets | Alerts |
+| --- | --- |
+| <img src="docs/widgets-desktop.png" alt="Desktop widgets" width="440"> | <img src="docs/alerts-settings.png" alt="Alert rules" width="440"> |
+
 <p align="center">
   <img src="docs/overview.gif" alt="Overview updating" width="640">
 </p>
@@ -27,11 +31,13 @@ The pictures below are the built-in demo dashboard (1280×800), so they stay rep
 ## Features
 
 - Overview bento: CPU (total, per-core heat, 60s history), memory and swap, GPU, disks, network up/down, battery, temperatures, host and uptime.
+- Desktop widgets for CPU, memory, GPU, network, disks, and sensors. Each is a small frameless window you can drag, keep on top or pin to the desktop, fade, and lock so clicks pass through. Open and close them from the card, the tray, or Settings. Position, size, and which ones are open are remembered. Every window shares one sampler.
+- Threshold alerts for CPU, memory, GPU, temperature, disk free space, and low battery. Each rule has a hold time and a cooldown, plus a recovery band so it does not flap. DeskStats sends a native notification and keeps a short in-app history.
 - Process list with search, sort, and end-process confirmation.
 - Detail pages for CPU, memory, GPU, disks, and network (60s or 5 min).
 - Dark, light, and system themes. English and Simplified Chinese, following the OS language until you switch.
 - Windows 11 Mica, macOS vibrancy, solid graphite on Linux.
-- Sampling interval 0.5 / 1 / 2 / 5 seconds. Hidden or minimized windows sample at 4× (at least 2s).
+- Sampling interval 0.5 / 1 / 2 / 5 seconds. When every DeskStats window is hidden or minimized, sampling drops to 4× (at least 2s). An open widget keeps the normal rate.
 - Tray icon: show, pause, quit, and a CPU / RAM tooltip.
 - Optional NVIDIA readings through NVML (`nvidia` feature, on by default). If the driver library is missing, GPU data falls back to `sysinfo` and temperatures stay blank.
 - Demo mode for screenshots and headless runs.
@@ -94,7 +100,7 @@ npm run tauri dev -- --demo
 DESKSTATS_DEMO=1 npm run tauri dev
 ```
 
-Screenshot query parameters: `shot=1`, `theme=dark|light`, `lang=en|zh`, `page=overview|cpu|memory|gpu|disk|network|processes|settings`.
+Screenshot query parameters: `shot=1`, `theme=dark|light`, `lang=en|zh`, `page=overview|cpu|memory|gpu|disk|network|processes|settings|widgets`. Settings also takes `panel=general|widgets|alerts`.
 
 ### Tests
 
@@ -112,11 +118,11 @@ Linux note: some Wayland sessions need `WEBKIT_DISABLE_DMABUF_RENDERER=1`. The t
 
 ## Roadmap
 
-- **v1.1 Alerts.** Thresholds for CPU, memory, temperature, disk space, and low battery, with a hold time and cooldown before a notification fires.
-- **v1.2 Widget mode.** Pop any card into a borderless, always-on-top window. Drag, lock, and fade it. Tray mini-panel.
-- **v1.3 Deeper sensors.** Optional LibreHardwareMonitor (PawnIO) sidecar on Windows for CPU temperature, fans, voltage, and power, with a clear administrator prompt. macOS SMC temperatures and fans.
-- **v1.4 History.** Local SQLite for 24h / 7d charts and CSV export.
-- **v1.5 Layouts and themes.** Presets (Catppuccin, Nord, Dracula), custom accents, and a draggable card layout.
+- [x] **v1.1 Alerts.** Thresholds for CPU, memory, GPU, temperature, disk free space, and low battery, with a hold time, cooldown, and hysteresis.
+- [x] **v1.2 Widget mode.** Pop CPU, memory, GPU, network, disks, or sensors into a frameless window. Drag it, pin it on top or to the desktop, fade it, and lock click-through.
+- [ ] **v1.3 Deeper sensors.** Optional LibreHardwareMonitor (PawnIO) sidecar on Windows for CPU temperature, fans, voltage, and power, with a clear administrator prompt. macOS SMC temperatures and fans.
+- [ ] **v1.4 History.** Local SQLite for 24h / 7d charts and CSV export.
+- [ ] **v1.5 Layouts and themes.** Presets (Catppuccin, Nord, Dracula), custom accents, and a draggable card layout.
 
 Later: launch at login, updates, menu-bar speeds, opt-in LAN viewing, and pluggable sources.
 
